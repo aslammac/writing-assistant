@@ -21,7 +21,6 @@ class AccessibilityPlugin: NSObject, FlutterPlugin {
     private var channel: FlutterMethodChannel?
     private var observer: AXObserver?
     private var currentFocusedElement: AXUIElement?
-    private var currentAppElement: AXUIElement?
 
     static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "com.example.writing_assistant/accessibility",
@@ -44,6 +43,12 @@ class AccessibilityPlugin: NSObject, FlutterPlugin {
         case "openPrivacySettings":
             let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
             NSWorkspace.shared.open(url)
+            result(nil)
+        case "showWindowWithoutActivating":
+            if let window = NSApplication.shared.windows.first {
+                window.orderFrontRegardless()
+                print("DEBUG: Called orderFrontRegardless() on window")
+            }
             result(nil)
         case "injectText":
             if let args = call.arguments as? [String: Any],
@@ -75,7 +80,6 @@ class AccessibilityPlugin: NSObject, FlutterPlugin {
         let pid = frontmostApp.processIdentifier
         print("DEBUG: Renewing observer for: \(frontmostApp.localizedName ?? "unknown") (pid: \(pid))")
         let appElement = AXUIElementCreateApplication(pid)
-        self.currentAppElement = appElement
 
         var observer: AXObserver?
         let result = AXObserverCreate(pid, { (observer, element, notification, refcon) in
@@ -99,6 +103,7 @@ class AccessibilityPlugin: NSObject, FlutterPlugin {
     }
 
     private func handleAccessibilityNotification(element: AXUIElement, notification: CFString) {
+        print("DEBUG: Received notification: \(notification) for element: \(element)")
         if notification == kAXFocusedUIElementChangedNotification as CFString {
             currentFocusedElement = element
         }
@@ -106,10 +111,6 @@ class AccessibilityPlugin: NSObject, FlutterPlugin {
         if notification == kAXValueChangedNotification as CFString {
             notifyTextChange(element: element)
         }
-    }
-
-    private func logElementDetails(_ element: AXUIElement, prefix: String) {
-        // Debug helper - removed for production
     }
 
     private func notifyTextChange(element: AXUIElement) {
@@ -172,19 +173,6 @@ class AccessibilityPlugin: NSObject, FlutterPlugin {
         let result = AXUIElementCopyAttributeValue(systemElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
         if result == .success {
             return (focusedElement as! AXUIElement)
-        } else {
-             print("DEBUG: System-wide focus failed: \(result.rawValue). Trying app-specific focus.")
-            if let appElement = currentAppElement {
-                let appResult = AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
-                if appResult == .success {
-                     print("DEBUG: App-specific focus SUCCESS")
-                     return (focusedElement as! AXUIElement)
-                } else {
-                     print("DEBUG: App-specific focus failed: \(appResult.rawValue)")
-                }
-            } else {
-                print("DEBUG: No currentAppElement to try fallback")
-            }
         }
         return nil
     }

@@ -39,7 +39,7 @@ class _WritingAssistantAppState extends State<WritingAssistantApp> {
   void initState() {
     super.initState();
     _initSystemTray();
-    _checkPermissions()
+    _checkPermissions();
     _setupMethodChannel();
 
     // Configure window manager for the floating UI
@@ -150,27 +150,47 @@ class _WritingAssistantAppState extends State<WritingAssistantApp> {
   }
 
   Future<void> _processText(String text, Offset position) async {
+    print(
+      "DEBUG: Processing text: '${text.length > 20 ? text.substring(0, 20) + "..." : text}' at $position",
+    );
     if (text.isEmpty) {
       await windowManager.hide();
       return;
     }
 
     final suggestion = await _grammarService.fixGrammar(text);
+    print(
+      "DEBUG: Grammar service returned: ${suggestion != null ? "'${suggestion.length > 20 ? suggestion.substring(0, 20) + "..." : suggestion}'" : "null"}",
+    );
+    print("DEBUG: Suggestion different from text: ${suggestion != text}");
+
     if (suggestion != null && suggestion != text) {
       setState(() {
         _suggestion = suggestion;
         _cursorPos = position;
       });
+      print("DEBUG: Calling _showOverlay with suggestion: $suggestion");
       await _showOverlay();
     } else {
+      print("DEBUG: No suggestion or same as original, hiding window");
       await windowManager.hide();
     }
   }
 
   Future<void> _showOverlay() async {
+    print("DEBUG: _showOverlay called at position: $_cursorPos");
     await windowManager.setSize(const Size(250, 80));
     await windowManager.setPosition(_cursorPos);
-    await windowManager.show();
+    // Use native method to show without activating
+    try {
+      await platform.invokeMethod('showWindowWithoutActivating');
+      print("DEBUG: Native showWindowWithoutActivating called");
+    } catch (e) {
+      print(
+        "DEBUG: Failed to call native show, falling back to window_manager: $e",
+      );
+      await windowManager.show();
+    }
   }
 
   Future<void> _applyFix() async {

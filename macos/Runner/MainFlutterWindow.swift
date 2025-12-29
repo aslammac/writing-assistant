@@ -11,6 +11,14 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
     AccessibilityPlugin.register(with: flutterViewController.registrar(forPlugin: "AccessibilityPlugin"))
     
+    // Configure window to be non-activating
+    self.level = .floating
+    self.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+    self.isMovableByWindowBackground = false
+    self.backgroundColor = NSColor.clear
+    self.isOpaque = false
+    self.hasShadow = true
+    
     super.awakeFromNib()
   }
 
